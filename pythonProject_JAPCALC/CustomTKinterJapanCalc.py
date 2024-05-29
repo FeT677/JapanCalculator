@@ -4,11 +4,80 @@ import requests
 from bs4 import BeautifulSoup
 from lxml import etree
 from tkinter import BooleanVar
-from PIL import ImageTk, Image
+from PIL import Image
 
+#To-Do 
+#Пофиксить парсер ББР банка (он подтягивает курс на продажу, а не на покупку)
+#Сделать серым текстом автозаполнение полей, в которые нужно что-то вносить самому (чтобы у пользователя был пример ввода)
+#Функция расчета утиль сбора
+#Функция расчета таможенной ставки
+#Функция расчета таможенного платежа
+#Функция расчета таможенного оформления
+#Функция расчета ацкиза
 
 ctk.set_default_color_theme("green")
 
+def set_variables():
+    #Для фрейса CTkFrame (основные данные необходимые для расчетов)
+    global motor_volume, horse_power, current_year, current_month, vehicle_year, vehicle_month, yen_swift_rate, euro_rate, yen_central_bank_rate
+    motor_volume = None
+    horse_power = None
+    current_year = None
+    current_month = None
+    vehicle_year = None
+    vehicle_month = None
+    yen_swift_rate = None
+    euro_rate = None
+    yen_central_bank_rate = None
+    
+
+    #Для фрейма CTkFrame2 (подробный отчет при неактивном чекбоксе "Для ЮР лиц") (ДЛЯ ЮР ЛИЦ)
+    global auc_vehicle_price, freight, fob, japan_comission, bank_comission, summary_in_jp, summary_in_jp_rub, util_sbor, custom_rate, \
+    nds, custom_duty, excise, custom_services, broker_and_glonas, my_commission, take_to_the_bank, customs_charges
+
+    auc_vehicle_price = None 
+    freight = None
+    fob = None
+    japan_comission = None
+    bank_comission = None
+    summary_in_jp = None
+    summary_in_jp_rub = None
+    util_sbor = None
+    custom_rate = None
+    nds = None
+    custom_duty = None
+    excise = None
+    custom_services = None
+    broker_and_glonas = None
+    my_commission = None
+    take_to_the_bank = None
+    customs_charges = None
+
+    #Для фрейма CTkFrame2 (подробный отчет при АКТИВНОМ чекбоксе "Для ЮР лиц")  (ДЛЯ ФИЗ ЛИЦ)
+    global fiz_auc_vehicle_price, fiz_freight, fiz_japan_comission, fiz_bank_comission, fiz_summary_in_jp, fiz_summary_in_jp_rub, fiz_util_sbor, fiz_custom_duty, fiz_custom_rate, fiz_custom_services, fiz_sbkts, fiz_svh, \
+    fiz_svh_lab_parking, fiz_broker_services, fiz_temp_registrarion, fiz_glonas
+
+    fiz_auc_vehicle_price = None
+    fiz_freight = None
+    fiz_japan_comission = None
+    fiz_bank_comission = None
+    fiz_summary_in_jp = None
+    fiz_summary_in_jp_rub = None
+    fiz_util_sbor = None
+    fiz_custom_duty = None
+    fiz_custom_rate = None
+    fiz_custom_services = None
+    fiz_sbkts = None
+    fiz_svh = None
+    fiz_svh_lab_parking = None
+    fiz_broker_services = None
+    fiz_temp_registrarion = None
+    fiz_glonas = None
+
+    global jp_comission_global
+    jp_comission_global = None
+
+#Парсинг сайта ББР банка для получения курса JPY
 def bbr_pars():
     url = "https://bbr.ru"
     response = requests.get(url)
@@ -23,6 +92,8 @@ def bbr_pars():
         bbr_pars = str(result[0]) 
         bbr_pars = bbr_pars.replace(',','.')
         return bbr_pars
+
+#Парсинг сайта ЦБРФ для получения курса EUR и JPY
 def get_exchange_rates():
     url = "https://www.cbr.ru/currency_base/daily/"
     response = requests.get(url)
@@ -41,7 +112,6 @@ def get_exchange_rates():
                 'exchange_rate': exchange_rate
             }
     return exchange_rates.get('EUR', {}).get('exchange_rate'), exchange_rates.get('JPY', {}).get('exchange_rate')
-
 
 #Автозаполнение полей
 def auto_fill():
@@ -68,148 +138,138 @@ def auto_fill():
 
     yen_swift_rate_entry.insert(0,(round(bbr_final_final_pars, 4)))
 
-
 #Удаление всех виджетов во втором фрейме. Используется в функции смены ЮР/ФИЗ лицо  
 def clear_frame(CTkFrame2):
     for widget in CTkFrame2.winfo_children():
         widget.destroy()   
-
 
 #Создаем поля с информацией под ЮР ЛИЦО      
 def legal_checkbox_ON():
 
     clear_frame(CTkFrame2)
 
-    auc_vehicle_price_lable = ctk.CTkLabel(CTkFrame2, text='Аукционная стоимость:')
+    global auc_vehicle_price_entry, freight_entry, fob_entry, japan_comission_entry, bank_comission_entry, summary_in_jp_entry, summary_in_jp_rub_entry, \
+    util_sbor_entry, custom_rate_entry, nds_entry, custom_duty_entry, excise_entry, custom_services_entry, broker_and_glonas_entry, \
+    my_commission_entry, take_to_the_bank_entry, customs_charges_entry, custom_services_entry
+    
+    auc_vehicle_price_lable = ctk.CTkLabel(CTkFrame2, text='Аукционная стоимость')
     auc_vehicle_price_lable.grid(row=1, column=0, padx=10, pady=4, sticky='w')
     auc_vehicle_price_entry = ctk.CTkEntry(CTkFrame2)
     auc_vehicle_price_entry.grid(row=1, column=1, padx=10, pady=4, sticky='w')
 
-    freight_lable = ctk.CTkLabel(CTkFrame2, text="Фрахт:")
+    freight_lable = ctk.CTkLabel(CTkFrame2, text="Фрахт")
     freight_lable.grid(row=2, column=0, padx=10, pady=4, sticky='w')
     freight_entry = ctk.CTkEntry(CTkFrame2)
     freight_entry.grid(row=2, column=1, padx=10, pady=4, sticky='w')
 
-
-    fob_lable = ctk.CTkLabel(CTkFrame2, text="Фоб:")
+    fob_lable = ctk.CTkLabel(CTkFrame2, text="Фоб")
     fob_lable.grid(row=3, column=0, padx=10, pady=4, sticky='w')
     fob_entry = ctk.CTkEntry(CTkFrame2)
     fob_entry.grid(row=3, column=1, padx=10, pady=4, sticky='w')
 
-
-    japan_comission_lable = ctk.CTkLabel(CTkFrame2, text= f"Комиссия Японии за стоимость:")
+    japan_comission_lable = ctk.CTkLabel(CTkFrame2, text= f"Комиссия Японии за стоимость")
     japan_comission_lable.grid(row=4, column=0, padx=10, pady=4, sticky='w')
     japan_comission_entry = ctk.CTkEntry(CTkFrame2)
     japan_comission_entry.grid(row=4, column=1, padx=10, pady=4, sticky='w')
-    
 
     bank_comission_lable = ctk.CTkLabel(CTkFrame2, text='Комиссия банка за переводы')
     bank_comission_lable.grid(row=5, column=0, padx=10, pady=4, sticky='w')
     bank_comission_entry = ctk.CTkEntry(CTkFrame2)
     bank_comission_entry.grid(row=5, column=1, padx=10, pady=4, sticky='w')
 
-
     summary_in_jp_lable = ctk.CTkLabel(CTkFrame2, text='ИТОГО В ЯПОНИЮ (JPY)')
     summary_in_jp_lable.grid(row=6, column=0, padx=10, pady=4, sticky='w')
     summary_in_jp_entry = ctk.CTkEntry(CTkFrame2)
     summary_in_jp_entry.grid(row=6, column=1, padx=10, pady=4, sticky='w')
-
 
     summary_in_jp_rub_lable = ctk.CTkLabel(CTkFrame2, text='ИТОГО В ЯПОНИЮ (RUB)')
     summary_in_jp_rub_lable.grid(row=7, column=0, padx=10, pady=4, sticky='w')
     summary_in_jp_rub_entry = ctk.CTkEntry(CTkFrame2)
     summary_in_jp_rub_entry.grid(row=7, column=1, padx=10, pady=4, sticky='w')
 
-
     util_sbor_lable = ctk.CTkLabel(CTkFrame2, text='Утилизационный сбор')
     util_sbor_lable.grid(row=1, column=2, padx=10, pady=4, sticky='w')
-    util_sbot_entry = ctk.CTkEntry(CTkFrame2)
-    util_sbot_entry.grid(row=1, column=3, padx=10, pady=4, sticky='w')
+    util_sbor_entry = ctk.CTkEntry(CTkFrame2)
+    util_sbor_entry.grid(row=1, column=3, padx=10, pady=4, sticky='w')
     
     custom_rate_lable = ctk.CTkLabel(CTkFrame2, text='Таможенная ставка')
-    custom_rate_lable.grid(row=2, column=2, padx=10, pady=4, sticky='w')
+    custom_rate_lable.grid(row=3, column=2, padx=10, pady=4, sticky='w')
     custom_rate_entry = ctk.CTkEntry(CTkFrame2)
-    custom_rate_entry.grid(row=2, column=3, padx=10, pady=4)
-
+    custom_rate_entry.grid(row=3, column=3, padx=10, pady=4)
 
     nds_lable = ctk.CTkLabel(CTkFrame2, text='НДС')
-    nds_lable.grid(row=3, column=2, padx=10, pady=4, sticky='w')
+    nds_lable.grid(row=6, column=2, padx=10, pady=4, sticky='w')
     nds_entry = ctk.CTkEntry(CTkFrame2)
-    nds_entry.grid(row=3, column=3, padx=10, pady=4, sticky='w')
-
+    nds_entry.grid(row=6, column=3, padx=10, pady=4, sticky='w')
 
     custom_duty_lable = ctk.CTkLabel(CTkFrame2, text='Пошлина')
-    custom_duty_lable.grid(row=4, column=2, padx=10, pady=4, sticky='w')
+    custom_duty_lable.grid(row=2, column=2, padx=10, pady=4, sticky='w')
     custom_duty_entry = ctk.CTkEntry(CTkFrame2)
-    custom_duty_entry.grid(row=4, column=3, padx=10, pady=4, sticky='w')
-
+    custom_duty_entry.grid(row=2, column=3, padx=10, pady=4, sticky='w')
 
     excise_lable = ctk.CTkLabel(CTkFrame2, text='Акциз')
     excise_lable.grid(row=5, column=2, padx=10, pady=4, sticky='w')
     excise_entry = ctk.CTkEntry(CTkFrame2)
     excise_entry.grid(row=5, column=3, padx=10, pady=4, sticky='w')
 
-    
     custom_services_lable = ctk.CTkLabel(CTkFrame2, text='Таможенное оформление')
-    custom_services_lable.grid(row=6, column=2, padx=10, pady=4, sticky='w')
+    custom_services_lable.grid(row=4, column=2, padx=10, pady=4, sticky='w')
     custom_services_entry = ctk.CTkEntry(CTkFrame2)
-    custom_services_entry.grid(row=6, column=3, padx=10, pady=4, sticky='w')
-
+    custom_services_entry.grid(row=4, column=3, padx=10, pady=4, sticky='w')
 
     broker_and_glonas_lable = ctk.CTkLabel(CTkFrame2, text='Брокер+Глонас')
     broker_and_glonas_lable.grid(row=7, column=2, padx=10, pady=4, sticky='w')
     broker_and_glonas_entry = ctk.CTkEntry(CTkFrame2)
     broker_and_glonas_entry.grid(row=7, column=3, padx=10, pady=4, sticky='w')
     
-
     payment_stages_lable = ctk.CTkLabel(CTkFrame2, text='ЭТАПЫ ОПЛАТЫ')
     payment_stages_lable.grid(row=8, column=0, columnspan=2, sticky='we', padx=10, pady=4)
-
 
     my_commission_lable = ctk.CTkLabel(CTkFrame2, text="Моя комиссия")
     my_commission_lable.grid(row=9, column=0, padx=10, pady=4, sticky='w')
     my_commission_entry = ctk.CTkEntry(CTkFrame2)
     my_commission_entry.grid(row=9, column=1, padx=10, pady=4, sticky='w')
     
-
     take_to_the_bank_lable = ctk.CTkLabel(CTkFrame2, text='Взять с собой в банк')
     take_to_the_bank_lable.grid(row=10, column=0, padx=10, pady=4, sticky='w')
     take_to_the_bank_entry = ctk.CTkEntry(CTkFrame2)
     take_to_the_bank_entry.grid(row=10, column=1, padx=10, pady=4, sticky='w')
-
 
     customs_charges_lable = ctk.CTkLabel(CTkFrame2, text='Оплата таможни')
     customs_charges_lable.grid(row=11, column=0, padx=10, pady=4, sticky='w')
     customs_charges_entry = ctk.CTkEntry(CTkFrame2)
     customs_charges_entry.grid(row=11, column=1, padx=10, pady=4, sticky='w')
 
-    custom_services_lable = ctk.CTkLabel(CTkFrame2, text='Броке + Глонас')
+    custom_services_lable = ctk.CTkLabel(CTkFrame2, text='Брокер + Глонас')
     custom_services_lable.grid(row=15, column=0, padx=10, pady=4, sticky='w')
     custom_services_entry = ctk.CTkEntry(CTkFrame2)
     custom_services_entry.grid(row=15, column=1, padx=10, pady=4, sticky='w')
-
 
 #Создаем поля с информацией под ЮР ЛИЦО 
 def legal_checkbox_OFF():
 
     clear_frame(CTkFrame2)
 
-    fiz_auc_vehicle_price_lable = ctk.CTkLabel(CTkFrame2, text='Аукционная стоимость:')
+    global fiz_auc_vehicle_price_entry, fiz_freight_entry, fiz_fob_entry, fiz_japan_comission_entry, fiz_bank_comission_entry, fiz_summary_in_jp_entry, fiz_summary_in_jp_rub_entry, fiz_util_sbot_entry, \
+    fiz_custom_duty_entry, fiz_custom_rate_entry, fiz_custom_services_entry, fiz_sbkts_entry, fiz_svh_entry, fiz_svh_lab_parking_entry, fiz_broker_services_entry, fiz_temp_registrarion_entry, fiz_glonas_entry, \
+    fiz_my_commission_entry, fiz_take_to_the_bank_entry, fiz_customs_charges_entry, fiz_broker_entry
+
+    fiz_auc_vehicle_price_lable = ctk.CTkLabel(CTkFrame2, text='Аукционная стоимость')
     fiz_auc_vehicle_price_lable.grid(row=1, column=0, padx=10, pady=4, sticky='w')
     fiz_auc_vehicle_price_entry = ctk.CTkEntry(CTkFrame2)
     fiz_auc_vehicle_price_entry.grid(row=1, column=1, padx=10, pady=4, sticky='w')
 
-    fiz_freight_lable = ctk.CTkLabel(CTkFrame2, text="Фрахт:")
+    fiz_freight_lable = ctk.CTkLabel(CTkFrame2, text="Фрахт")
     fiz_freight_lable.grid(row=2, column=0, padx=10, pady=4, sticky='w')
     fiz_freight_entry = ctk.CTkEntry(CTkFrame2)
     fiz_freight_entry.grid(row=2, column=1, padx=10, pady=4, sticky='w')
 
-    fiz_fob_lable = ctk.CTkLabel(CTkFrame2, text="Фоб:")
+    fiz_fob_lable = ctk.CTkLabel(CTkFrame2, text="Фоб")
     fiz_fob_lable.grid(row=3, column=0, padx=10, pady=4, sticky='w')
     fiz_fob_entry = ctk.CTkEntry(CTkFrame2)
     fiz_fob_entry.grid(row=3, column=1, padx=10, pady=4, sticky='w')
 
-    fiz_japan_comission_lable = ctk.CTkLabel(CTkFrame2, text= f"Комиссия Японии за стоимость:")
+    fiz_japan_comission_lable = ctk.CTkLabel(CTkFrame2, text= f"Комиссия Японии за стоимость")
     fiz_japan_comission_lable.grid(row=4, column=0, padx=10, pady=4, sticky='w')
     fiz_japan_comission_entry = ctk.CTkEntry(CTkFrame2)
     fiz_japan_comission_entry.grid(row=4, column=1, padx=10, pady=4, sticky='w')
@@ -259,12 +319,12 @@ def legal_checkbox_OFF():
     fiz_svh_entry = ctk.CTkEntry(CTkFrame2)
     fiz_svh_entry.grid(row=6, column=3, padx=10, pady=4, sticky='w')
 
-    fiz_svh_lab_parking_lable = ctk.CTkLabel(CTkFrame2, text='СВХ, Лабо-я, Стоянка')
+    fiz_svh_lab_parking_lable = ctk.CTkLabel(CTkFrame2, text='СВХ-Лаб.-Стоянка')
     fiz_svh_lab_parking_lable.grid(row=7, column=2, padx=10, pady=4, sticky='w')
     fiz_svh_lab_parking_entry = ctk.CTkEntry(CTkFrame2)
     fiz_svh_lab_parking_entry.grid(row=7, column=3, padx=10, pady=4, sticky='w')
 
-    fiz_broker_services_lable= ctk.CTkLabel(CTkFrame2, text='Услуга брокера')
+    fiz_broker_services_lable= ctk.CTkLabel(CTkFrame2, text='Услуги брокера')
     fiz_broker_services_lable.grid(row=8, column=2, padx=10, pady=4, sticky='w')
     fiz_broker_services_entry = ctk.CTkEntry(CTkFrame2)
     fiz_broker_services_entry.grid(row=8, column=3, padx=10, pady=4, sticky='w')
@@ -282,26 +342,25 @@ def legal_checkbox_OFF():
     fiz_payment_stages_lable = ctk.CTkLabel(CTkFrame2, text='ЭТАПЫ ОПЛАТЫ')
     fiz_payment_stages_lable.grid(row=8, column=0, columnspan=2, padx=10, pady=4, sticky='we')
 
-    fiz_custom_services_lable = ctk.CTkLabel(CTkFrame2, text='Моя комиссия')
-    fiz_custom_services_lable.grid(row=9, column=0, padx=10, pady=4, sticky='w')
-    fiz_custom_services_entry = ctk.CTkEntry(CTkFrame2)
-    fiz_custom_services_entry.grid(row=9, column=1, padx=10, pady=4, sticky='w')
+    fiz_my_commission_lable = ctk.CTkLabel(CTkFrame2, text='Моя комиссия')
+    fiz_my_commission_lable.grid(row=9, column=0, padx=10, pady=4, sticky='w')
+    fiz_my_commission_entry = ctk.CTkEntry(CTkFrame2)
+    fiz_my_commission_entry.grid(row=9, column=1, padx=10, pady=4, sticky='w')
 
-    fiz_custom_services_lable = ctk.CTkLabel(CTkFrame2, text='Взять с собой в банк')
-    fiz_custom_services_lable.grid(row=10, column=0, padx=10, pady=4, sticky='w')
-    fiz_custom_services_entry = ctk.CTkEntry(CTkFrame2)
-    fiz_custom_services_entry.grid(row=10, column=1, padx=10, pady=4, sticky='w')
+    fiz_take_to_the_bank_label = ctk.CTkLabel(CTkFrame2, text='Взять с собой в банк')
+    fiz_take_to_the_bank_label.grid(row=10, column=0, padx=10, pady=4, sticky='w')
+    fiz_take_to_the_bank_entry = ctk.CTkEntry(CTkFrame2)
+    fiz_take_to_the_bank_entry.grid(row=10, column=1, padx=10, pady=4, sticky='w')
 
-    fiz_custom_services_lable = ctk.CTkLabel(CTkFrame2, text='Оплата таможни')
-    fiz_custom_services_lable.grid(row=11, column=0, padx=10, pady=4, sticky='w')
-    fiz_custom_services_entry = ctk.CTkEntry(CTkFrame2)
-    fiz_custom_services_entry.grid(row=11, column=1, padx=10, pady=4, sticky='w')
+    fiz_customs_charges_lable = ctk.CTkLabel(CTkFrame2, text='Оплата таможни')
+    fiz_customs_charges_lable.grid(row=11, column=0, padx=10, pady=4, sticky='w')
+    fiz_customs_charges_entry = ctk.CTkEntry(CTkFrame2)
+    fiz_customs_charges_entry.grid(row=11, column=1, padx=10, pady=4, sticky='w')
 
-    fiz_custom_services_lable = ctk.CTkLabel(CTkFrame2, text='Оплата брокеру')
-    fiz_custom_services_lable.grid(row=12, column=0, padx=10, pady=4, sticky='w')
-    fiz_custom_services_entry = ctk.CTkEntry(CTkFrame2)
-    fiz_custom_services_entry.grid(row=12, column=1, padx=10, pady=4, sticky='w')
-
+    fiz_broker_label = ctk.CTkLabel(CTkFrame2, text='Оплата брокеру')
+    fiz_broker_label.grid(row=12, column=0, padx=10, pady=4, sticky='w')
+    fiz_broker_entry = ctk.CTkEntry(CTkFrame2)
+    fiz_broker_entry.grid(row=12, column=1, padx=10, pady=4, sticky='w')
 
 #Что делать при нажатии чекбокса ЮР ЛИЦО/ФИЗ ЛИЦО    
 def on_legal_checkbox():
@@ -310,11 +369,6 @@ def on_legal_checkbox():
         legal_checkbox_ON()
     else:
         legal_checkbox_OFF() 
-
-#Комманда для кнопки которая выводит все расчеты
-def calculate_everything():
-    age_rank()
-    japan_comission_for_the_price()
 
 # Функция вычисления возраста авто в Юридических категориях таможни РФ 
 def age_rank():
@@ -328,33 +382,31 @@ def age_rank():
     
     vehicle_age_months = current_date_in_months - vehicle_date_in_months
 
-    
     if vehicle_age_months <= 36:
-        age_rank = ' до 3-х лет'
+        age_rank = 'Категория возраста авто: до 3-х лет'
     elif vehicle_age_months >=36 and vehicle_age_months <= 60:
-        age_rank = ' 3-5 лет'
+        age_rank = 'Категория возраста авто:3-5 лет'
     elif vehicle_age_months >=60 and vehicle_age_months <= 84:
-        age_rank = ' 5-7 лет'
+        age_rank = 'Категория возраста авто: 5-7 лет'
     elif vehicle_age_months >=84:
-        age_rank = ' 7+ лет'
+        age_rank = 'Категория возраста авто: 7+ лет'
 
-    vehicle_age_CTkLabel = ctk.CTkLabel(CTkFrame2, text= f"Возраст авто:{age_rank}")
-    vehicle_age_CTkLabel.grid(row=3, column=1, padx=10, pady=4)
+    vehicle_age_CTkLabel = ctk.CTkLabel(CTkFrame, text= f"{age_rank}")
+    vehicle_age_CTkLabel.grid(row=5, column=2, columnspan=2, padx=10, pady=4, sticky='w')
 
 # Функция вычисления комиссии Японского брокера за цену на аукционе 
 def japan_comission_for_the_price():
-
+    global jp_comission_global
     vehicle_auc_price_entryed = int(vehicle_auc_price_entry.get())
 
-    if vehicle_auc_price_entryed > 2999:
-        japan_comission_for_the_price = 40
-    elif vehicle_auc_price_entryed > 1999:
-        japan_comission_for_the_price = 30
-    elif vehicle_auc_price_entryed > 999:
-        japan_comission_for_the_price = 20
+    if vehicle_auc_price_entryed > 2999000:
+        jp_comission_global = 40000
+    elif vehicle_auc_price_entryed > 1999000:
+        jp_comission_global = 30000
+    elif vehicle_auc_price_entryed > 999000:
+        jp_comission_global = 20000
     else:
-        japan_comission_for_the_price = 0
-
+        jp_comission_global = 0
 
 space = '\u2008\u2008\u2008\u2008\u2008\u2008\u2008'
 current_month = datetime.now().month
@@ -371,42 +423,53 @@ eur_rate, jpy_rate = get_exchange_rates()
 jpy_rate = float(jpy_rate/100)
 
 window = ctk.CTk(fg_color='#281b22')
-window.title('РАСЧЕТ СТОИМОСТИ АВТО ИЗ ЯПОНИИ')
+window.title('РАСЧЕТ СТОИМОСТИ ПОКУПКИ/ТАМОЖНИ/ДОСТАВКИ АВТОМОБИЛЯ ИЗ ЯПОНИИ')
 
-window.geometry("740x715")  
+window.geometry("755x743")  
 window.resizable(False, False)
+window.iconbitmap(r'icon.ico')
 
+# Загрузка изображений для светлого и тёмного режимов
+light_img = Image.open(r"C:\Users\koajl\Desktop\JapanCalc\backplate.jpg")
+dark_img = Image.open(r"C:\Users\koajl\Desktop\JapanCalc\backplate.jpg")
 
-CTkFrame = ctk.CTkFrame(window,fg_color='#3D3D3D')
+# Создание объекта CTkImage
+my_image = ctk.CTkImage(light_image=light_img, dark_image=dark_img, size=(1000, 1000))
+
+#Чисто декоративный фрейм для создания цветной окантовки
+CTkFrame3 = ctk.CTkFrame(window)
+CTkFrame3.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
+
+#Размещаем в этот фрейм джипежку
+image_label = ctk.CTkLabel(CTkFrame3, image=my_image, text="")
+image_label.place(x=0, y=0, relwidth=1, relheight=1)
+
+#Фрейм для ввода основных переменных
+CTkFrame = ctk.CTkFrame(CTkFrame3,fg_color='#3D3D3D')
 CTkFrame.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
 
-
-CTkFrame2 = ctk.CTkFrame(window,fg_color='#3D3D3D')  
-CTkFrame2.grid(row=1, column=0, padx=10, pady=0, sticky='nsew')
-
+#Фрейм для подробного отчета
+CTkFrame2 = ctk.CTkFrame(CTkFrame3,fg_color='#3D3D3D')  
+CTkFrame2.grid(row=1, column=0, padx=10, pady=10, sticky='nsew', rowspan=2)
 
 legal_check_var = BooleanVar()
-legal_checkbox = ctk.CTkCheckBox(CTkFrame, text="Для ЮР лица", variable=legal_check_var, command=on_legal_checkbox)
-legal_checkbox.grid(row=6, column=3, padx=10, pady=4, sticky='w')
+legal_checkbox = ctk.CTkCheckBox(CTkFrame, text="РАСЧЕТ ДЛЯ ЮРИДИЧЕСКИХ ЛИЦ", variable=legal_check_var, command=on_legal_checkbox)
+legal_checkbox.grid(row=4, column=2, columnspan=2, padx=10, pady=4, sticky='w')
 
-
-vehicle_auc_price_CTkLabel = ctk.CTkLabel(CTkFrame, text=f"Аукционная стоимость:{space}{space}")
+vehicle_auc_price_CTkLabel = ctk.CTkLabel(CTkFrame, text=f"АУКЦИОННАЯ СТОИМОСТЬ{space}")
 vehicle_auc_price_CTkLabel.grid(row=0, column=0, padx=10, pady=2, sticky='w')
 vehicle_auc_price_entry = ctk.CTkEntry(CTkFrame)
 vehicle_auc_price_entry.grid(row=0, column=1, padx=10, pady=4, sticky='w')
 
-
-motor_volume_CTkLabel = ctk.CTkLabel(CTkFrame, text="Объем мотора:")
+motor_volume_CTkLabel = ctk.CTkLabel(CTkFrame, text="ОБЪЕМ МОТОРА")
 motor_volume_CTkLabel.grid(row=1, column=0, padx=10, pady=4, sticky='w')
 motor_volume_entry = ctk.CTkEntry(CTkFrame)
 motor_volume_entry.grid(row=1, column=1, padx=10, pady=4, sticky='w')
 
-
-horse_power_CTkLabel = ctk.CTkLabel(CTkFrame, text="Лошадинных сил")
+horse_power_CTkLabel = ctk.CTkLabel(CTkFrame, text="ЛОШАДИНЫХ СИЛ")
 horse_power_CTkLabel.grid(row=2, column=0, padx=10, pady=4, sticky='w')
 horse_power_entry = ctk.CTkEntry(CTkFrame)
 horse_power_entry.grid(row=2, column=1, padx=10, pady=4, sticky='w')
-
 
 years = [
     "2001", "2002", "2003", "2004", "2005", "2006",
@@ -423,51 +486,74 @@ months = [
 year_var = ctk.StringVar(window)
 month_var = ctk.StringVar(window)
 
-current_year_CTkLabel = ctk.CTkLabel(CTkFrame, text="Текущий год")
+current_year_CTkLabel = ctk.CTkLabel(CTkFrame, text='ТЕКУЩИЙ ГОД')
 current_year_CTkLabel.grid(row=3, column=0, padx=10, pady=4, sticky='w')
 current_year_entry = ctk.CTkEntry(CTkFrame)
 current_year_entry.grid(row=3, column=1, padx=10, pady=4, sticky='w')
 
-
-current_month_CTkLabel = ctk.CTkLabel(CTkFrame, text="Текущий месяц")
+current_month_CTkLabel = ctk.CTkLabel(CTkFrame, text="ТЕКУЩИЙ МЕСЯЦ")
 current_month_CTkLabel.grid(row=4, column=0, padx=10, pady=4, sticky='w')
 current_month_entry = ctk.CTkEntry(CTkFrame)
 current_month_entry.grid(row=4, column=1, padx=10, pady=4, sticky='w')
 
-vehicle_year_CTkLabel = ctk.CTkLabel(CTkFrame, text="Год выпуска авто")
+vehicle_year_CTkLabel = ctk.CTkLabel(CTkFrame, text="ГОД ВЫПУСКА АВТО")
 vehicle_year_CTkLabel.grid(row=5, column=0, padx=10, pady=4, sticky='w')
 vehicle_year_entry = ctk.CTkComboBox(CTkFrame, values=years, state="readonly", variable=year_var)
 vehicle_year_entry.grid(row=5, column=1)
 vehicle_year_entry["state"] = "readonly"
 
-
-vehicle_month_CTkLabel = ctk.CTkLabel(CTkFrame, text="Месяц выпуска авто")
+vehicle_month_CTkLabel = ctk.CTkLabel(CTkFrame, text="МЕСЯЦ ВЫПУСКА АВТО")
 vehicle_month_CTkLabel.grid(row=6, column=0, padx=10, pady=4, sticky='w')
 vehicle_month_entry = ctk.CTkComboBox(CTkFrame, values=months, state="readonly", variable=month_var)
 vehicle_month_entry.grid(row=6, column=1)
 vehicle_month_entry["state"] = "readonly"
 
-
-yen_swift_rate_CTkLabel = ctk.CTkLabel(CTkFrame, text="Курс йены в вашем банке")
+yen_swift_rate_CTkLabel = ctk.CTkLabel(CTkFrame, text="КУРС JPY В BBR БАНКЕ")
 yen_swift_rate_CTkLabel.grid(row=0, column=2, padx=10, pady=4, sticky='w')
 yen_swift_rate_entry = ctk.CTkEntry(CTkFrame)
 yen_swift_rate_entry.grid(row=0, column=3, padx=10, pady=4, sticky='w')
 
-
-euro_rate_CTkLabel = ctk.CTkLabel(CTkFrame, text="Курс евро по ЦБ")
+euro_rate_CTkLabel = ctk.CTkLabel(CTkFrame, text="КУРС EUR ПО ЦБ")
 euro_rate_CTkLabel.grid(row=1, column=2, padx=10, pady=4, sticky='w')
 euro_rate_entry = ctk.CTkEntry(CTkFrame)
 euro_rate_entry.grid(row=1, column=3, padx=10, pady=4, sticky='w')
 
-
-yen_central_bank_rate_CTkLabel = ctk.CTkLabel(CTkFrame, text="Курс йены по ЦБ")
+yen_central_bank_rate_CTkLabel = ctk.CTkLabel(CTkFrame, text="КУРС JPY ПО ЦБ")
 yen_central_bank_rate_CTkLabel.grid(row=2, column=2, padx=10, pady=4, sticky='w')
 yen_central_bank_rate_entry = ctk.CTkEntry(CTkFrame)
 yen_central_bank_rate_entry.grid(row=2, column=3, padx=10, pady=4, sticky='w')
 
+#Комманда для кнопки которая выводит все расчеты
+def calculate_everything():
+    age_rank()
+    if legal_check_var.get():
+        auc_vehicle_price = int(vehicle_auc_price_entry.get())
+        auc_vehicle_price_entry.delete(0, ctk.END)
+        auc_vehicle_price_entry.insert(0, auc_vehicle_price)
+        freight_entry.insert(0, '60000')
+        fob_entry.insert(0, '60000')
+        broker_and_glonas_entry.insert(0, '100000')
+        my_commission_entry.insert(0, '30000')
+        japan_comission_for_the_price()
+        japan_comission_entry.insert(0, f'{jp_comission_global}')
 
-calculate_button = ctk.CTkButton(CTkFrame, text="Расчитать", command = calculate_everything)
-calculate_button.grid(row=6, column=2, padx=10, pady=4, sticky='we')
+
+        
+
+
+
+    else:
+        fiz_auc_vehicle_price = int(vehicle_auc_price_entry.get())
+        fiz_auc_vehicle_price_entry.delete(0, ctk.END)
+        fiz_auc_vehicle_price_entry.insert(0, fiz_auc_vehicle_price)
+        fiz_freight_entry.insert(0, '60000')
+        fiz_fob_entry.insert(0, '60000')
+        fiz_my_commission_entry.insert(0, '30000')
+        japan_comission_for_the_price()
+        fiz_japan_comission_entry.insert(0, f'{jp_comission_global}')
+
+calculate_button = ctk.CTkButton(CTkFrame, text="Расчитать ориентировочную стоимость", command = calculate_everything)
+calculate_button.grid(row=3, column=2, columnspan=2, padx=10, pady=4, sticky='we')
 
 #Автозаполнение
 auto_fill()
